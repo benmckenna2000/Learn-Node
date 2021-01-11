@@ -42,10 +42,12 @@ exports.resize = async (req, res, next) => {
 };
 
 exports.createStore = async (req, res) => {
+  req.body.author = req.user._id;
   const store = await new Store(req.body).save();
+  //.save(); //fires off connection to mongoDB database and eii//ther returns store info or error message
   req.flash(
     "success",
-    `Successfuly Created ${store.name}. Care to leave a review?`
+    `Successfully created ${store.name}. Want to leave a review?`
   );
   res.redirect(`/store/${store.slug}`);
 };
@@ -55,8 +57,15 @@ exports.getStores = async (req, res) => {
   res.render("stores", { title: "Stores", stores });
 };
 
+const confirmOwner = (store, user) => {
+  if (!store.author.equals(user._id)) {
+    throw Error("You must own a store to edit it!");
+  }
+};
+
 exports.editStore = async (req, res) => {
   const store = await Store.findOne({ _id: req.params.id });
+  confirmOwner(store, req.user);
   res.render("editStore", { title: `Edit ${store.name}`, store });
 };
 
@@ -73,7 +82,9 @@ exports.updateStore = async (req, res) => {
 };
 
 exports.getStoreBySlug = async (req, res, next) => {
-  const store = await Store.findOne({ slug: req.params.slug });
+  const store = await (await Store.findOne({ slug: req.params.slug })).populate(
+    "author"
+  );
   if (!store) return next();
   res.render("store", { store, title: store.name });
 };
